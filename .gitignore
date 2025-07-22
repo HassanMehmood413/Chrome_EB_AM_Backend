@@ -1,0 +1,10 @@
+npm-debug.log
+.DS_Store
+.vscode/
+dist/
+build/
+node_modules/
+deploy/
+yarn.lock
+.env
+.vercel
