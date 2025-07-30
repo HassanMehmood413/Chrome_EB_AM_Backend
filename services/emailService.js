@@ -38,7 +38,7 @@ class EmailService {
           </div>
           
           <p>You can now access our Chrome extension using these credentials.</p>
-          ${loginUrl ? `<p><a href="${loginUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Access Chrome Extension</a></p>` : ''}
+          ${loginUrl ? `<p></p>` : ''}
           
           <p><strong>Important:</strong> Please keep these credentials secure and consider changing your password after first login.</p>
           
