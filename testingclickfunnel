@@ -1,0 +1,257 @@
+// @+971 58 546 0600 
+
+// https://patiom-extension-api1.vercel.app/v1/user/update-user-status
+// Use this to update the user status. pass this 2 things name and email
+
+
+// https://patiom-extension-api1.vercel.app/v1/user/get-user-status
+// Check user status pass him user id.
+
+
+// Both functions code for better help @+971 58 546 0600 
+
+
+router.get('/get-user-status', async (req, res) => {
+  try {
+    const { _id: userId } = req.user;
+  
+    const userStatus = await GetUserStatus({ userId });
+    res.status(200).json({
+      success: true,
+      userStatus
+    });
+  } catch (error) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.post('/update-user-status', validateParams({
+  userId: Joi.string().required(),
+  status: Joi.string().required()
+}), async (req, res) => {
+  try {
+    const {
+      userId,
+      status
+    } = req.body;
+
+    await UpdateUserStatus({
+      userId,
+      status
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User Status Updated Successfully'
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+// Webhook endpoint for ClickFunnels
+router.post('/webhook/clickfunnels', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email || !name) {
+      return res.status(400).json({ success: false, message: 'Email and name are required.' });
+    }
+
+    // Generate a random password
+    const generatedPassword = Math.random().toString(36).slice(-8) + 'A1!'; // ensure some complexity
+
+    // Check if user exists
+    let user = await require('../models/user').default.findOne({ email });
+    if (!user) {
+      // Create new user
+      const { Types } = require('mongoose');
+      user = new (require('../models/user').default)({
+        _id: Types.ObjectId().toHexString(),
+        name,
+        email,
+        password: generatedPassword,
+        status: 'enabled',
+      });
+      await user.save();
+    } else {
+      // If user exists, ensure status is enabled
+      if (user.status !== 'enabled') {
+        user.status = 'enabled';
+        await user.save();
+      }
+    }
+
+    return res.status(200).json({ success: true, message: 'User created or updated', user: { email, name, status: 'enabled' } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+
+
+
+// #############################################
+
+
+import express from 'express';
+import Joi from 'joi';
+
+import {
+  GetAllUsers,
+  GetUserStatus,
+  UpdateUserStatus
+} from '../controllers/user';
+
+import validateParams from '../middlewares/validate-params';
+
+import catchResponse from '../utils/catch-response';
+
+const router = express.Router();
+
+router.get('/get-all-users', async (req, res) => {
+  try {
+    const response = await GetAllUsers();
+
+    res.status(200).json({
+      success: true,
+      users: response
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.get('/get-user-status', async (req, res) => {
+  try {
+    const { _id: userId } = req.user;
+  
+    const userStatus = await GetUserStatus({ userId });
+    res.status(200).json({
+      success: true,
+      userStatus
+    });
+  } catch (error) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.post('/update-user-status', validateParams({
+  userId: Joi.string().required(),
+  status: Joi.string().required()
+}), async (req, res) => {
+  try {
+    const {
+      userId,
+      status
+    } = req.body;
+
+    await UpdateUserStatus({
+      userId,
+      status
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User Status Updated Successfully'
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+// Webhook endpoint for ClickFunnels
+router.post('/webhook/clickfunnels', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email || !name) {
+      return res.status(400).json({ success: false, message: 'Email and name are required.' });
+    }
+
+    // Generate a random password
+    const generatedPassword = Math.random().toString(36).slice(-8) + 'A1!'; // ensure some complexity
+
+    // Check if user exists
+    let user = await require('../models/user').default.findOne({ email });
+    if (!user) {
+      // Create new user
+      const { Types } = require('mongoose');
+      user = new (require('../models/user').default)({
+        _id: Types.ObjectId().toHexString(),
+        name,
+        email,
+        password: generatedPassword,
+        status: 'enabled',
+      });
+      await user.save();
+    } else {
+      // If user exists, ensure status is enabled
+      if (user.status !== 'enabled') {
+        user.status = 'enabled';
+        await user.save();
+      }
+    }
+
+    return res.status(200).json({ success: true, message: 'User created or updated', user: { email, name, status: 'enabled' } });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+export default router;
+
+
+// This is whole code and its routes
+
+
+
+
+
+
+
+
+
+
+
+// ################################################################# 
+
+
+
+
+// To integrate **ClickFunnels** with your **Node.js backend** so that when a user purchases, it creates a user in your backend (for Chrome extension login), you can follow this plan:
+
+// ---
+
+// ## ✅ Goal
+
+// After a **successful ClickFunnels purchase**, automatically:
+
+// 1. **Receive webhook data** from ClickFunnels.
+// 2. **Extract user email/password** (or generate password).
+// 3. **Send data to your backend API** to create the user.
+
+// ---
+
+// ## 🧩 Overview of Steps
+
+// ### 1. **Create a Webhook Endpoint in Your Node.js Backend**
+
+// This will accept POST requests from ClickFunnels:
+
+// js
+// routes/webhook.js

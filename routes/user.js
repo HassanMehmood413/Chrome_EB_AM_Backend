@@ -4,7 +4,10 @@ import Joi from 'joi';
 import {
   GetAllUsers,
   GetUserStatus,
-  UpdateUserStatus
+  UpdateUserStatus,
+  CheckSubscription,
+  RenewSubscription,
+  ExpireSubscriptions
 } from '../controllers/user/index.js';
 
 import validateParams from '../middlewares/validate-params.js';
@@ -64,6 +67,63 @@ router.post('/update-user-status', validateParams({
     res.status(200).json({
       success: true,
       message: 'User Status Updated Successfully'
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.post('/check-subscription', validateParams({
+  email: Joi.string().email().required()
+}), async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const subscriptionStatus = await CheckSubscription({ email });
+
+    res.status(200).json({
+      success: true,
+      ...subscriptionStatus
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.post('/renew-subscription', validateParams({
+  email: Joi.string().email().required(),
+  orderId: Joi.string().optional()
+}), async (req, res) => {
+  try {
+    const { email, orderId } = req.body;
+
+    const renewalResult = await RenewSubscription({ email, orderId });
+
+    res.status(200).json({
+      success: true,
+      ...renewalResult
+    });
+  } catch (err) {
+    catchResponse({
+      res,
+      err
+    });
+  }
+});
+
+router.post('/expire-subscriptions', async (req, res) => {
+  try {
+    const expirationResult = await ExpireSubscriptions();
+
+    res.status(200).json({
+      success: true,
+      ...expirationResult
     });
   } catch (err) {
     catchResponse({

@@ -24,11 +24,59 @@ const loginCheck = (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (!user) {
       req.error = info.error;
+      req.subscriptionUrl = info.subscriptionUrl;
+      req.needsSubscription = info.needsSubscription;
     } else {
       req.user = user;
     }
     next();
   })(req, res, next);
+};
+
+const checkSubscriptionStatus = (user) => {
+  if (!user.subscription) {
+    return {
+      isValid: false,
+      error: 'No subscription found. Please subscribe to access the extension.',
+      subscriptionUrl: process.env.SUBSCRIPTION_URL || 'https://go.ecommiracle.com/ecommiracle'
+    };
+  }
+
+  const { status, endDate, isTrialActive, trialEndDate } = user.subscription;
+
+  // Check if trial is active and not expired
+  if (isTrialActive && trialEndDate) {
+    const now = new Date();
+    if (now > new Date(trialEndDate)) {
+      return {
+        isValid: false,
+        error: 'Your trial subscription has expired. Please upgrade to continue using the extension.',
+        subscriptionUrl: process.env.SUBSCRIPTION_URL || 'https://go.ecommiracle.com/ecommiracle'
+      };
+    }
+    return { isValid: true };
+  }
+
+  // Check subscription status
+  if (status === 'inactive' || status === 'cancelled' || status === 'expired') {
+    return {
+      isValid: false,
+      error: 'Your subscription is not active. Please renew your subscription to continue.',
+      subscriptionUrl: process.env.SUBSCRIPTION_URL || 'https://go.ecommiracle.com/ecommiracle'
+    };
+  }
+
+  // Check if subscription has expired
+  if (endDate && new Date() > new Date(endDate)) {
+    return {
+      isValid: false,
+      error: 'Your subscription has expired. Please renew to continue using the extension.',
+      subscriptionUrl: process.env.SUBSCRIPTION_URL || 'https://go.ecommiracle.com/ecommiracle'
+    };
+  }
+
+  // If we reach here, subscription is valid
+  return { isValid: true };
 };
 
 const LocalLoginStrategy = new LocalStrategy(
@@ -57,6 +105,17 @@ const LocalLoginStrategy = new LocalStrategy(
           error: 'Your login details could not be verified. Please try again.'
         });
       }
+
+      // Check subscription status
+      const subscriptionCheck = checkSubscriptionStatus(user);
+      if (!subscriptionCheck.isValid) {
+        return done(null, false, {
+          error: subscriptionCheck.error,
+          subscriptionUrl: subscriptionCheck.subscriptionUrl,
+          needsSubscription: true
+        });
+      }
+
       return done(null, user);
     } catch (err) {
       done(err);
@@ -81,6 +140,35 @@ const AuthenticateAuthToken = (req, res, next) => {
   )(req, res, next);
 };
 
+const checkSubscriptionMiddleware = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required',
+        needsSubscription: false
+      });
+    }
+
+    const subscriptionCheck = checkSubscriptionStatus(req.user);
+    if (!subscriptionCheck.isValid) {
+      return res.status(403).json({
+        success: false,
+        message: subscriptionCheck.error,
+        subscriptionUrl: subscriptionCheck.subscriptionUrl,
+        needsSubscription: true
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: 'Error checking subscription status'
+    });
+  }
+};
+
 const AuthenticationStrategy = new JWTstrategy(
   {
     jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -103,5 +191,6 @@ export {
   AuthenticateAuthToken,
   generateTokenResponse,
   loginCheck,
-  LocalLoginStrategy
+  LocalLoginStrategy,
+  checkSubscriptionMiddleware
 };

@@ -55,8 +55,18 @@ router.post('/sign-in', validateParams({
 }), loginCheck, async (req, res) => {
   try {
     if (req?.error) {
+      // Check if it's a subscription-related error
+      if (req.needsSubscription) {
+        return res.status(403).json({
+          success: false,
+          message: req.error,
+          subscriptionUrl: req.subscriptionUrl,
+          needsSubscription: true
+        });
+      }
+      
       const err = new Error();
-      err.message = 'Email or Password is incorrect';
+      err.message = req.error || 'Email or Password is incorrect';
       err.statusCode = 400;
       throw err;
     }

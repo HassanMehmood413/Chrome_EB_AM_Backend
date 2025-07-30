@@ -22,7 +22,32 @@ const SignUp = async ({
     _id: Types.ObjectId().toHexString(),
     name,
     email,
-    password
+    password,
+    subscription: {
+      status: 'inactive',
+      plan: null,
+      startDate: null,
+      endDate: null,
+      trialEndDate: null,
+      isTrialActive: false,
+      clickfunnelsOrderId: null,
+      amount: null,
+      currency: 'gbp',
+      billingCycle: 'monthly',
+      nextBillingDate: null
+    },
+    billing: {
+      name: name,
+      email: email,
+      phone: null,
+      address: {
+        street: null,
+        city: null,
+        region: null,
+        country: null,
+        postalCode: null
+      }
+    }
   });
 
   result = await user.save();
