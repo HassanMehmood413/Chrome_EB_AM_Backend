@@ -18,8 +18,14 @@ router.post('/clickfunnels-webhook',
   rateLimitWebhook,
   async (req, res) => {
     try {
-      console.log('Raw webhook payload:', JSON.stringify(req.body, null, 2));
-      console.log('Headers:', JSON.stringify(req.headers, null, 2));
+      // Comprehensive payload logging
+      console.log('='.repeat(80));
+      console.log('📨 CLICKFUNNELS WEBHOOK RECEIVED');
+      console.log('='.repeat(80));
+      console.log('🕐 Timestamp:', new Date().toISOString());
+      console.log('📄 Full Headers:', JSON.stringify(req.headers, null, 2));
+      console.log('📦 Complete Payload:', JSON.stringify(req.body, null, 2));
+      console.log('='.repeat(80));
       
       // Extract data from ClickFunnels webhook structure
       const email = req.body.data?.contact?.email_address;
@@ -30,17 +36,49 @@ router.post('/clickfunnels-webhook',
       const product_name = req.body.data?.line_items?.[0]?.original_product?.name;
       const amount = req.body.data?.line_items?.[0]?.products_price?.amount;
 
-      console.log('ClickFunnels webhook received:', {
-        email,
-        name,
-        purchase_id,
-        product_name,
-        amount,
-        timestamp: new Date().toISOString()
-      });
+      // Extract user-provided password from ClickFunnels fields
+      const userPassword = req.body.data?.contact?.custom_attributes?.alphanumeric;
+      const confirmPassword = req.body.data?.contact?.custom_attributes?.confirm_password;
 
-      // Generate secure password
-      const generatedPassword = generateSecurePassword(12);
+      console.log('🔍 Custom Attributes Found:', JSON.stringify(req.body.data?.contact?.custom_attributes, null, 2));
+      
+      console.log('📋 Extracted Data:');
+      console.log('   📧 Email:', email);
+      console.log('   👤 Name:', name);
+      console.log('   🆔 Purchase ID:', purchase_id);
+      console.log('   📦 Product:', product_name);
+      console.log('   💰 Amount:', amount);
+      console.log('   🔐 User Password:', userPassword ? '***PROVIDED***' : 'NOT PROVIDED');
+      console.log('   🔐 Confirm Password:', confirmPassword ? '***PROVIDED***' : 'NOT PROVIDED');
+
+      // Determine password to use
+      let passwordToUse;
+      let passwordSource;
+
+      if (userPassword && confirmPassword) {
+        if (userPassword === confirmPassword) {
+          passwordToUse = userPassword;
+          passwordSource = 'user-provided';
+          console.log('✅ Using user-provided password (passwords match)');
+        } else {
+          console.log('❌ Password mismatch - generating secure password instead');
+          passwordToUse = generateSecurePassword(12);
+          passwordSource = 'generated-mismatch';
+        }
+      } else if (userPassword && !confirmPassword) {
+        passwordToUse = userPassword;
+        passwordSource = 'user-provided-single';
+        console.log('✅ Using user-provided password (single password field)');
+      } else if (!userPassword && confirmPassword) {
+        // Handle case where only confirm_password is provided (like in your webhook)
+        passwordToUse = confirmPassword;
+        passwordSource = 'user-provided-confirm-only';
+        console.log('✅ Using user-provided password (from confirm_password field)');
+      } else {
+        passwordToUse = generateSecurePassword(12);
+        passwordSource = 'generated-default';
+        console.log('🔐 No user password provided - generating secure password');
+      }
 
       // Calculate subscription end date (1 month from start)
       const startDate = new Date(req.body.data?.activated_at || new Date());
@@ -76,31 +114,45 @@ router.post('/clickfunnels-webhook',
       };
 
       // Create user in database
-      const userResult = await createUserFromWebhook(email, name, generatedPassword, subscriptionData, billingData);
+      console.log('👤 Creating/updating user in database...');
+      const userResult = await createUserFromWebhook(email, name, passwordToUse, subscriptionData, billingData);
+      console.log('✅ User operation completed:', userResult.isNew ? 'NEW USER CREATED' : 'EXISTING USER UPDATED');
 
       // Send welcome email with credentials (only for new users)
       let emailResult = { success: true, message: 'Email not sent - existing user' };
       if (userResult.isNew) {
+        console.log('📧 Sending welcome email to new user...');
         emailResult = await emailService.sendWelcomeEmail(
           email, 
           name, 
-          generatedPassword,
-          process.env.CHROME_EXTENSION_URL
+          passwordToUse,
+          process.env.CHROME_EXTENSION_URL,
+          passwordSource
         );
 
-        if (!emailResult.success) {
-          console.error('Failed to send welcome email:', emailResult.error);
+        if (emailResult.success) {
+          console.log('✅ Welcome email sent successfully! Message ID:', emailResult.messageId);
+        } else {
+          console.error('❌ Failed to send welcome email:', emailResult.error);
           // Don't fail the webhook if email fails, but log it
         }
+      } else {
+        console.log('ℹ️  Skipping email - user already exists');
       }
 
-      // Log successful webhook processing
-      console.log('Webhook processed successfully:', {
-        email,
-        isNewUser: userResult.isNew,
-        emailSent: emailResult.success,
-        userId: userResult.user._id
-      });
+      // Log comprehensive webhook processing summary
+      console.log('='.repeat(50));
+      console.log('📊 WEBHOOK PROCESSING SUMMARY');
+      console.log('='.repeat(50));
+      console.log('✅ Status: SUCCESS');
+      console.log('📧 Email:', email);
+      console.log('👤 User:', userResult.isNew ? 'NEW' : 'EXISTING');
+      console.log('🔐 Password Source:', passwordSource);
+      console.log('📬 Email Sent:', emailResult.success);
+      console.log('🆔 User ID:', userResult.user._id);
+      console.log('💳 Subscription:', subscriptionData.status);
+      console.log('🕐 Processed At:', new Date().toISOString());
+      console.log('='.repeat(50));
 
       // Return success response to ClickFunnels
       res.status(200).json({
@@ -108,7 +160,9 @@ router.post('/clickfunnels-webhook',
         message: userResult.message,
         user_created: userResult.isNew,
         email_sent: emailResult.success,
-        webhook_id: purchase_id || 'unknown'
+        password_source: passwordSource,
+        webhook_id: purchase_id || 'unknown',
+        timestamp: new Date().toISOString()
       });
 
     } catch (error) {
