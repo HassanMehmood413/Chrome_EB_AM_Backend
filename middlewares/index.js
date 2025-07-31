@@ -6,7 +6,12 @@ import passport from 'passport';
 import { LocalLoginStrategy, AuthenticationStrategy } from './auth.js';
 
 const ApplyMiddlewares = (app) => {
-  app.use(cors());
+  app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
   app.use(express.json({ limit: '50mb' }));
   app.use(logger('common'));
   app.use(passport.initialize());

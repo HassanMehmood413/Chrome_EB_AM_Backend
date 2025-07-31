@@ -112,7 +112,19 @@ schema.pre('save', function (next) {
 });
 
 schema.methods.validatePassword = function (candidatePassword) {
-  return bcrypt.compareSync(candidatePassword, this.password);
+  console.log('Password validation debug:');
+  console.log('- Candidate password length:', candidatePassword?.length);
+  console.log('- Stored password hash length:', this.password?.length);
+  console.log('- Hash starts with $2a$ or $2b$:', this.password?.startsWith('$2a$') || this.password?.startsWith('$2b$'));
+  
+  try {
+    const result = bcrypt.compareSync(candidatePassword, this.password);
+    console.log('- bcrypt.compareSync result:', result);
+    return result;
+  } catch (error) {
+    console.error('- bcrypt.compareSync error:', error);
+    return false;
+  }
 };
 
 const User = model('user', schema);

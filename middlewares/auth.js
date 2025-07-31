@@ -86,21 +86,29 @@ const LocalLoginStrategy = new LocalStrategy(
   },
   async (req, email, password, done) => {
     try {
+      console.log('Login attempt for email:', email);
       const user = await User.findOne({ email });
       if (!user) {
+        console.log('User not found for email:', email);
         return done(null, false, {
           error: 'Your login details could not be verified. Please try again.'
         });
       }
 
+      console.log('User found:', { id: user._id, email: user.email, hasPassword: !!user.password });
+      
       if (!user.password) {
+        console.log('User has no password field');
         return done(null, false, {
           error: 'Your login details could not be verified. Please try again.'
         });
       }
 
       const isValid = user?.validatePassword(password);
+      console.log('Password validation result:', isValid);
+      
       if (!isValid) {
+        console.log('Password validation failed for user:', email);
         return done(null, false, {
           error: 'Your login details could not be verified. Please try again.'
         });
